@@ -2,9 +2,13 @@
 
 import toml
 import discord
+from discord.ext.commands import Bot
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+import textwrap
+
+discord.VoiceClient.warn_nacl = False
 
 config = toml.load('config.toml')
 
@@ -33,23 +37,29 @@ log.addHandler(handler)
 
 log.info("Bot started.")
 
-client = discord.Client()
+bot = Bot(command_prefix='!')
+
+links = {}
 
 
-@client.event
+@bot.event
 async def on_ready():
-	print("We have logged in as {0.user}".format(client))
+	log.info("Logged in as {0.user}".format(bot))
+	print("Logged in as {0.user}".format(bot))
 
 
-@client.event
-async def on_message(message):
-	if message.author == client.user:
-		return
-
-	if message.content.startswith('$hello'):
-		await message.channel.send("Hello!")
+@bot.command()
+async def ping(ctx):
+	await ctx.send("Pong!")
 
 
-client.run(config['discord-token'])
+@bot.command()
+async def listlinks(ctx):
+	text = "hugs {} • yes".format(ctx.message.author.mention)
+	for chunk in textwrap.wrap(text, width=1500, break_long_words=False):
+		await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
+
+
+bot.run(config['discord-token'])
 
 log.info("Bot stopped.")
