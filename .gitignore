@@ -1,0 +1,5 @@
+# config containing secret tokens
+config.toml
+
+# logs
+/logs
