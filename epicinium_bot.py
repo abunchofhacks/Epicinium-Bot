@@ -44,6 +44,7 @@ links = json.load(linkfile)['links']
 linkfile.close()
 
 epicinium_application_id = config['application-id']
+guild_id = config['guild-id']
 
 intents = discord.Intents.default()
 intents.members = True
@@ -88,11 +89,13 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_member_update(before, after):
-	if (after.activity != None
-	    and after.activity.type == discord.ActivityType.playing
-	    and not isinstance(after.activity, discord.Game)
-	    and not isinstance(after.activity, discord.Streaming)
-	    and str(after.activity.application_id) == epicinium_application_id):
+	if str(after.guild.id) != guild_id:
+		return
+	elif (after.activity != None
+	      and after.activity.type == discord.ActivityType.playing
+	      and not isinstance(after.activity, discord.Game)
+	      and not isinstance(after.activity, discord.Streaming)
+	      and str(after.activity.application_id) == epicinium_application_id):
 		if not any(role.name == 'playing' for role in after.roles):
 			playing_role = next(
 			    (role for role in after.guild.roles if role.name == 'playing'),
@@ -108,7 +111,10 @@ async def on_member_update(before, after):
 
 @bot.event
 async def on_message(message):
+	global guild_id
 	if message.author == bot.user:
+		return
+	elif str(message.guild.id) != guild_id:
 		return
 	elif (isinstance(message.channel, discord.TextChannel)
 	      and message.channel.name == 'bot-data'
@@ -146,6 +152,11 @@ async def handle_bot_data_link(discord_id, epicinium_username):
 @bot.command()
 async def ping(ctx):
 	await ctx.send("Pong!")
+
+
+@bot.command()
+async def about(ctx):
+	await ctx.send("Guild ID: {}".format(ctx.guild.id))
 
 
 @bot.command()
