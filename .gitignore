@@ -1,5 +1,9 @@
 # config containing secret tokens
 config.toml
 
+# save data
+/saves
+
 # logs
 /logs
+*.log
