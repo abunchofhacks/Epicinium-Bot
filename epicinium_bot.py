@@ -31,7 +31,8 @@ loglevels = {
     "error": logging.ERROR,
 }
 
-logging.getLogger('discord').setLevel(loglevels.get(config['log-level']))
+logging.getLogger('discord').setLevel(
+    loglevels.get(config['log-level-discord']))
 logging.getLogger('discord').addHandler(handler)
 
 log = logging.getLogger(__name__)
@@ -42,7 +43,13 @@ linkfile = open('saves/latest_links.json', 'r')
 links = json.load(linkfile)['links']
 linkfile.close()
 
-bot = commands.Bot(command_prefix='!', help_command=None)
+epicinium_application_id = config['application-id']
+
+intents = discord.Intents.default()
+intents.members = True
+intents.presences = True
+
+bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
 
 log.info("Bot started.")
 
@@ -75,13 +82,28 @@ async def on_ready():
 
 
 @bot.event
-async def on_error(event, *args, **kwargs):
-	log.error(traceback.format_exc())
+async def on_command_error(ctx, error):
+	log.error(error)
 
 
 @bot.event
-async def on_command_error(ctx, error):
-	log.error(error)
+async def on_member_update(before, after):
+	if (after.activity != None
+	    and after.activity.type == discord.ActivityType.playing
+	    and not isinstance(after.activity, discord.Game)
+	    and not isinstance(after.activity, discord.Streaming)
+	    and str(after.activity.application_id) == epicinium_application_id):
+		if not any(role.name == 'playing' for role in after.roles):
+			playing_role = next(
+			    (role for role in after.guild.roles if role.name == 'playing'),
+			    None)
+			if playing_role != None:
+				await after.add_roles(playing_role)
+	else:
+		role_to_be_removed = next(
+		    (role for role in after.roles if role.name == 'playing'), None)
+		if role_to_be_removed != None:
+			await after.remove_roles(role_to_be_removed)
 
 
 @bot.command()
