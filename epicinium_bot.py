@@ -1,15 +1,16 @@
 ###
 
 import toml
-import json
 import discord
-import discord.ext.commands as commands
+from discord.ext import commands, tasks
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-import textwrap
-from datetime import datetime
-import traceback
+
+from src.state import State
+from src.bot_data import BotData
+from src.discord_handler import DiscordHandler
+from src.dyno_placeholder import DynoPlaceholder
 
 discord.VoiceClient.warn_nacl = False
 
@@ -24,24 +25,27 @@ handler = RotatingFileHandler('logs/epicinium_bot.log',
 handler.setFormatter(
     logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 
-loglevels = {
+log_levels = {
     "debug": logging.DEBUG,
     "info": logging.INFO,
     "warning": logging.WARNING,
     "error": logging.ERROR,
 }
+log_level = log_levels.get(config['log-level'])
 
 logging.getLogger('discord').setLevel(
-    loglevels.get(config['log-level-discord']))
+    log_levels.get(config['log-level-discord']))
 logging.getLogger('discord').addHandler(handler)
 
 log = logging.getLogger(__name__)
-log.setLevel(loglevels.get(config['log-level']))
+log.setLevel(log_level)
 log.addHandler(handler)
 
-linkfile = open('saves/latest_links.json', 'r')
-links = json.load(linkfile)['links']
-linkfile.close()
+logging.getLogger('src.bot_data').setLevel(log_level)
+logging.getLogger('src.bot_data').addHandler(handler)
+
+logging.getLogger('src.discord_handler').setLevel(log_level)
+logging.getLogger('src.discord_handler').addHandler(handler)
 
 epicinium_application_id = config['application-id']
 guild_id = config['guild-id']
@@ -52,29 +56,10 @@ intents.members = True
 intents.presences = True
 
 bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
-
-log.info("Bot started.")
-
-
-async def save_links():
-	linkfile = open('saves/latest_links.json', 'w')
-	json.dump({'links': links}, linkfile, indent=2)
-	linkfile.close()
-	backupfilename = 'saves/{}_links.json'.format(
-	    datetime.today().strftime('%Y-%m-%d'))
-	linkfile = open(backupfilename, 'w')
-	json.dump({'links': links}, linkfile, indent=2)
-	linkfile.close()
-
-
-async def check_author_is_admin(ctx):
-	if any(role.name == "admin" for role in ctx.author.roles):
-		return True
-	else:
-		await ctx.send(
-		    "{} You are not allowed to perform this command.".format(
-		        ctx.author.mention))
-		return False
+bot.add_cog(State())
+bot.add_cog(BotData(bot))
+bot.add_cog(DynoPlaceholder())
+bot.add_cog(DiscordHandler(bot))
 
 
 @bot.event
@@ -126,145 +111,12 @@ async def on_message(message):
 	      and message.channel.name == 'bot-data'
 	      and message.content.startswith('{')
 	      and message.content.endswith('}')):
-		await handle_bot_data(message)
+		await bot.get_cog('BotData').handle(message.content)
 	else:
 		await bot.process_commands(message)
 
 
-async def handle_bot_data(message):
-	data = json.loads(message.content)
-	if data['type'] == 'link':
-		discord_id = data['discord_id']
-		epicinium_username = data['username']
-		await handle_bot_data_link(discord_id, epicinium_username)
-	elif data['type'] == 'game_started':
-		pass
-	elif data['type'] == 'game_ended':
-		pass
-	else:
-		log.debug("Ignoring bot data of type: {}".format(data['type']))
-
-
-async def handle_bot_data_link(discord_id, epicinium_username):
-	global links
-	link = next((link for link in links if link['discord_id'] == discord_id),
-	            None)
-	if link != None:
-		link['epicinium_username'] = epicinium_username
-	else:
-		links.append({
-		    'discord_id': discord_id,
-		    'epicinium_username': epicinium_username
-		})
-	await save_links()
-
-
-@bot.command()
-async def ping(ctx):
-	await ctx.send("Pong!")
-
-
-@bot.command()
-async def about(ctx):
-	await ctx.send("Guild ID: {}".format(ctx.guild.id))
-
-
-@bot.command()
-async def link(ctx, discord_user: discord.Member, epicinium_username):
-	global links
-	if not await check_author_is_admin(ctx):
-		return
-	discord_id = str(discord_user.id)
-	link = next((link for link in links if link['discord_id'] == discord_id),
-	            None)
-	if link != None:
-		await ctx.send("User {} was already linked with username `{}`.".format(
-		    discord_user.mention, link['epicinium_username']))
-		link['epicinium_username'] = epicinium_username
-	else:
-		links.append({
-		    'discord_id': discord_id,
-		    'epicinium_username': epicinium_username
-		})
-	await ctx.send(
-	    "User {} is now linked with Epicinium username `{}`.".format(
-	        discord_user.mention, epicinium_username))
-	await save_links()
-
-
-@link.error
-async def link_error(ctx, error):
-	if isinstance(error, commands.BadArgument):
-		await ctx.send("Please use this command as follows:"
-		               " `!link DISCORD_MENTION EPICINIUM_USERNAME`")
-
-
-@bot.command()
-async def unlink(ctx, discord_user: discord.Member):
-	global links
-	if not await check_author_is_admin(ctx):
-		return
-	discord_id = str(discord_user.id)
-	links = [link for link in links if link['discord_id'] != discord_id]
-	await ctx.send("User {} is now unlinked.".format(discord_user.mention))
-	await save_links()
-
-
-@unlink.error
-async def unlink_error(ctx, error):
-	if isinstance(error, commands.BadArgument):
-		await ctx.send("Please use this command as follows:"
-		               " `!unlink DISCORD_MENTION`")
-
-
-@bot.command()
-async def listlinks(ctx):
-	global links
-	if not await check_author_is_admin(ctx):
-		return
-	textlinks = [
-	    "<@{}> {}".format(link['discord_id'], link['epicinium_username'])
-	    for link in links
-	]
-	text = " • ".join(textlinks)
-	for chunk in textwrap.wrap(text, width=1500, break_long_words=False):
-		await ctx.send(chunk, allowed_mentions=discord.AllowedMentions.none())
-
-
-@bot.command()
-async def help(ctx):
-	pass
-
-
-@bot.command()
-async def leaderboard(ctx):
-	pass
-
-
-@bot.command()
-async def wiki(ctx):
-	pass
-
-
-@bot.command()
-async def releasenotes(ctx):
-	pass
-
-
-@bot.command()
-async def website(ctx):
-	pass
-
-
-@bot.command()
-async def privacy(ctx):
-	pass
-
-
-@bot.command()
-async def abunchofhacks(ctx):
-	pass
-
+log.info("Bot started.")
 
 bot.run(config['discord-token'])
 

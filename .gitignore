@@ -7,3 +7,6 @@ config.toml
 # logs
 /logs
 *.log
+
+# Python execution
+__pycache__/
