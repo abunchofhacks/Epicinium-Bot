@@ -38,13 +38,13 @@ log = logging.getLogger(__name__)
 log.setLevel(loglevels.get(config['log-level']))
 log.addHandler(handler)
 
-log.info("Bot started.")
-
-bot = commands.Bot(command_prefix='!', help_command=None)
-
 linkfile = open('saves/latest_links.json', 'r')
 links = json.load(linkfile)['links']
 linkfile.close()
+
+bot = commands.Bot(command_prefix='!', help_command=None)
+
+log.info("Bot started.")
 
 
 async def save_links():
@@ -56,6 +56,16 @@ async def save_links():
 	linkfile = open(backupfilename, 'w')
 	json.dump({'links': links}, linkfile, indent=2)
 	linkfile.close()
+
+
+async def check_author_is_admin(ctx):
+	if any(role.name == "admin" for role in ctx.author.roles):
+		return True
+	else:
+		await ctx.send(
+		    "{} You are not allowed to perform this command.".format(
+		        ctx.author.mention))
+		return False
 
 
 @bot.event
@@ -81,6 +91,9 @@ async def ping(ctx):
 
 @bot.command()
 async def link(ctx, discord_user: discord.Member, epicinium_username):
+	global links
+	if not await check_author_is_admin(ctx):
+		return
 	discord_id = str(discord_user.id)
 	link = next((link for link in links if link['discord_id'] == discord_id),
 	            None)
@@ -107,7 +120,28 @@ async def link_error(ctx, error):
 
 
 @bot.command()
+async def unlink(ctx, discord_user: discord.Member):
+	global links
+	if not await check_author_is_admin(ctx):
+		return
+	discord_id = str(discord_user.id)
+	links = [link for link in links if link['discord_id'] != discord_id]
+	await ctx.send("User {} is now unlinked.".format(discord_user.mention))
+	await save_links()
+
+
+@unlink.error
+async def unlink_error(ctx, error):
+	if isinstance(error, commands.BadArgument):
+		await ctx.send("Please use this command as follows:"
+		               " `!unlink DISCORD_MENTION`")
+
+
+@bot.command()
 async def listlinks(ctx):
+	global links
+	if not await check_author_is_admin(ctx):
+		return
 	textlinks = [
 	    "<@{}> {}".format(link['discord_id'], link['epicinium_username'])
 	    for link in links
