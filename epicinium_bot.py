@@ -106,6 +106,43 @@ async def on_member_update(before, after):
 			await after.remove_roles(role_to_be_removed)
 
 
+@bot.event
+async def on_message(message):
+	if message.author == bot.user:
+		return
+	elif (isinstance(message.channel, discord.TextChannel)
+	      and message.channel.name == 'bot-data'
+	      and message.content.startswith('{')
+	      and message.content.endswith('}')):
+		data = json.loads(message.content)
+		if data['type'] == 'link':
+			discord_id = data['discord_id']
+			epicinium_username = data['username']
+			await handle_bot_data_link(discord_id, epicinium_username)
+		elif data['type'] == 'game_started':
+			pass
+		elif data['type'] == 'game_ended':
+			pass
+		else:
+			log.debug("Ignoring bot data of type: {}".format(data['type']))
+	else:
+		await bot.process_commands(message)
+
+
+async def handle_bot_data_link(discord_id, epicinium_username):
+	global links
+	link = next((link for link in links if link['discord_id'] == discord_id),
+	            None)
+	if link != None:
+		link['epicinium_username'] = epicinium_username
+	else:
+		links.append({
+		    'discord_id': discord_id,
+		    'epicinium_username': epicinium_username
+		})
+	await save_links()
+
+
 @bot.command()
 async def ping(ctx):
 	await ctx.send("Pong!")
