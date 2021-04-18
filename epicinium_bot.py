@@ -2,7 +2,7 @@
 
 import toml
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -11,6 +11,7 @@ from src.state import State
 from src.bot_data import BotData
 from src.discord_handler import DiscordHandler
 from src.dyno_placeholder import DynoPlaceholder
+from src.epicinium_client import EpiciniumClient
 
 discord.VoiceClient.warn_nacl = False
 
@@ -47,6 +48,9 @@ logging.getLogger('src.bot_data').addHandler(handler)
 logging.getLogger('src.discord_handler').setLevel(log_level)
 logging.getLogger('src.discord_handler').addHandler(handler)
 
+logging.getLogger('src.epicinium_client').setLevel(log_level)
+logging.getLogger('src.epicinium_client').addHandler(handler)
+
 epicinium_application_id = config['application-id']
 guild_id = config['guild-id']
 listen_to_dm = config['listen-to-dm']
@@ -60,6 +64,7 @@ bot.add_cog(State())
 bot.add_cog(BotData(bot))
 bot.add_cog(DynoPlaceholder())
 bot.add_cog(DiscordHandler(bot))
+bot.add_cog(EpiciniumClient(bot, config))
 
 
 @bot.event
