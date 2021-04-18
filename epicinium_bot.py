@@ -45,6 +45,7 @@ linkfile.close()
 
 epicinium_application_id = config['application-id']
 guild_id = config['guild-id']
+listen_to_dm = config['listen-to-dm']
 
 intents = discord.Intents.default()
 intents.members = True
@@ -114,25 +115,34 @@ async def on_message(message):
 	global guild_id
 	if message.author == bot.user:
 		return
+	elif isinstance(message.channel, discord.DMChannel):
+		if listen_to_dm:
+			await bot.process_commands(message)
+		else:
+			return
 	elif str(message.guild.id) != guild_id:
 		return
 	elif (isinstance(message.channel, discord.TextChannel)
 	      and message.channel.name == 'bot-data'
 	      and message.content.startswith('{')
 	      and message.content.endswith('}')):
-		data = json.loads(message.content)
-		if data['type'] == 'link':
-			discord_id = data['discord_id']
-			epicinium_username = data['username']
-			await handle_bot_data_link(discord_id, epicinium_username)
-		elif data['type'] == 'game_started':
-			pass
-		elif data['type'] == 'game_ended':
-			pass
-		else:
-			log.debug("Ignoring bot data of type: {}".format(data['type']))
+		await handle_bot_data(message)
 	else:
 		await bot.process_commands(message)
+
+
+async def handle_bot_data(message):
+	data = json.loads(message.content)
+	if data['type'] == 'link':
+		discord_id = data['discord_id']
+		epicinium_username = data['username']
+		await handle_bot_data_link(discord_id, epicinium_username)
+	elif data['type'] == 'game_started':
+		pass
+	elif data['type'] == 'game_ended':
+		pass
+	else:
+		log.debug("Ignoring bot data of type: {}".format(data['type']))
 
 
 async def handle_bot_data_link(discord_id, epicinium_username):
