@@ -1,4 +1,11 @@
 ###
+# Copyright 2021, A Bunch of Hacks
+#
+# Made available under the MIT License (see LICENSE.txt)
+#
+# [authors:]
+# Sander in 't Veld (sander@abunchofhacks.coop)
+###
 
 import json
 import logging
