@@ -28,6 +28,8 @@ class EpiciniumClient(commands.Cog):
 		user_agent = "epicinium-bot/{} (python)".format(self.version)
 		self.session = aiohttp.ClientSession(
 		    headers={"User-Agent": user_agent}, raise_for_status=True)
+		self.writer = None
+		self.reader = None
 		self.listen.start()
 		log.info("Client started: {}".format(user_agent))
 
@@ -39,11 +41,16 @@ class EpiciniumClient(commands.Cog):
 		host, port = await self.get_server()
 		log.info("Connecting to {}:{}...".format(host, port))
 		await self.connect(host=host, port=port)
+		await self.join()
+		await self.keep_listening()
+		await self.disconnect()
 		log.debug("Connection ended.")
 
 	@listen.after_loop
 	async def on_listen_cancel(self):
 		if self.listen.is_being_cancelled():
+			if self.writer != None:
+				await self.disconnect()
 			await self.session.close()
 
 	async def get_server(self):
@@ -58,7 +65,11 @@ class EpiciniumClient(commands.Cog):
 	async def connect(self, *, host, port):
 		log.info("Connecting...")
 		reader, writer = await asyncio.open_connection(host, port)
+		self.writer = writer
+		self.reader = reader
 		log.info("Connected.")
+
+	async def join(self):
 		message = {
 		    'type': 'version',
 		    'version': self.version,
@@ -66,17 +77,18 @@ class EpiciniumClient(commands.Cog):
 		        'patchmode': 'bot'
 		    }
 		}
-		writer.write(encode_message(message))
+		self.writer.write(encode_message(message))
 		message = {
 		    'type': 'join_server',
 		    'sender': self.account_id,
 		    'content': self.session_token
 		}
-		writer.write(encode_message(message))
-		await writer.drain()
-		# todo
+		self.writer.write(encode_message(message))
+		await self.writer.drain()
+
+	async def keep_listening(self):
 		while True:
-			message = await receive_message_from_reader(reader)
+			message = await self.receive_message()
 			if message == None:
 				break
 			elif message == {}:
@@ -85,16 +97,8 @@ class EpiciniumClient(commands.Cog):
 			if responses == None:
 				break
 			for message in responses:
-				writer.write(encode_message(message))
-			await writer.drain()
-		# todo
-		log.info("Disconnecting...")
-		message = {'type': 'quit'}
-		writer.write(encode_message(message))
-		await writer.drain()
-		await wait_for_closure_from_reader(reader)
-		writer.close()
-		log.info("Disconnected.")
+				self.writer.write(encode_message(message))
+			await self.writer.drain()
 
 	async def handle_message(self, message):
 		messages = []
@@ -115,46 +119,57 @@ class EpiciniumClient(commands.Cog):
 			log.debug("Ignoring message of type '{}'.".format(message['type']))
 		return messages
 
+	async def receive_message(self):
+		head = await self.reader.read(4)
+		if len(head) == 0:
+			log.error("Unexpected EOF!")
+			return None
+		elif len(head) < 4:
+			log.error("Unexpected EOF with {} trailing bytes!".format(
+			    len(head)))
+			return None
+		messagelen, = struct.unpack('!I', head)
+		if messagelen == 0:
+			log.debug("Received pulse.")
+			return {}
+		elif messagelen > 524288:
+			log.error(
+			    "Refusing to receive message of length {}.".format(messagelen))
+			return None
+		data = await self.reader.read(messagelen)
+		if len(data) < messagelen:
+			log.error(
+			    "Unexpected EOF while receiving message of length {}!".format(
+			        messagelen))
+			return None
+		jsonstr = data.decode(encoding='ascii')
+		log.debug("Received message: {}".format(jsonstr))
+		message = json.loads(jsonstr)
+		return message
 
-async def receive_message_from_reader(reader):
-	head = await reader.read(4)
-	if len(head) == 0:
-		log.error("Unexpected EOF!")
-		return None
-	elif len(head) < 4:
-		log.error("Unexpected EOF with {} trailing bytes!".format(len(head)))
-		return None
-	messagelen, = struct.unpack('!I', head)
-	if messagelen == 0:
-		log.debug("Received pulse.")
-		return {}
-	elif messagelen > 524288:
-		log.error(
-		    "Refusing to receive message of length {}.".format(messagelen))
-		return None
-	data = await reader.read(messagelen)
-	if len(data) < messagelen:
-		log.error(
-		    "Unexpected EOF while receiving message of length {}!".format(
-		        messagelen))
-		return None
-	jsonstr = data.decode(encoding='ascii')
-	log.debug("Received message: {}".format(jsonstr))
-	message = json.loads(jsonstr)
-	return message
+	async def disconnect(self):
+		await self.writer.drain()
+		log.info("Disconnecting...")
+		message = {'type': 'quit'}
+		self.writer.write(encode_message(message))
+		await self.writer.drain()
+		await self.wait_for_closure()
+		self.writer.close()
+		self.reader = None
+		self.writer = None
+		log.info("Disconnected.")
 
-
-async def wait_for_closure_from_reader(reader):
-	while True:
-		garbage = await reader.read(1024)
-		if len(garbage) > 0:
-			log.debug("Received {} bytes of garbage.".format(len(garbage)))
-		else:
-			break
+	async def wait_for_closure(self):
+		while True:
+			garbage = await self.reader.read(1024)
+			if len(garbage) > 0:
+				log.debug("Received {} bytes of garbage.".format(len(garbage)))
+			else:
+				break
 
 
 def encode_message(message):
-	jsonstr = json.dumps(message, ensure_ascii=True)
+	jsonstr = json.dumps(message, ensure_ascii=True, separators=(',', ':'))
 	log.debug("Sending message: {}".format(jsonstr))
 	# Encode the json message in lower ASCII.
 	data = jsonstr.encode(encoding='ascii')
