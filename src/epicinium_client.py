@@ -30,6 +30,7 @@ class EpiciniumClient(commands.Cog):
 		    headers={"User-Agent": user_agent}, raise_for_status=True)
 		self.writer = None
 		self.reader = None
+		self.username = None
 		self.listen.start()
 		log.info("Client started: {}".format(user_agent))
 
@@ -115,8 +116,40 @@ class EpiciniumClient(commands.Cog):
 			messages = [{'type': 'pong'}]
 		elif message['type'] == 'pong':
 			pass
-		else:
-			log.debug("Ignoring message of type '{}'.".format(message['type']))
+		elif message['type'] == 'join_server':
+			if 'content' not in message or not message['content']:
+				log.error("Failed to join server.")
+				return None
+			elif self.username == None:
+				self.username = message['content']
+				log.info("Joined server as '{}'".format(self.username))
+			elif message['content'] == self.username:
+				pass
+			else:
+				player_username = message['content']
+				tracker = self.bot.get_cog('Tracker')
+				tracker.add_player(player_username)
+				# TODO give playing role
+		elif message['type'] == 'leave_server':
+			if 'content' not in message or not message['content']:
+				log.error("Failed to join server. (Version mismatch?)")
+				return None
+			elif self.username != None and message['content'] == self.username:
+				pass
+			else:
+				player_username = message['content']
+				tracker = self.bot.get_cog('Tracker')
+				tracker.remove_player(player_username)
+				# TODO remove playing role
+		elif message['type'] == 'leave_lobby':
+			player_username = message['content']
+			# TODO switch from playing to lfg, if they were lfg
+		elif message['type'] == 'in_game':
+			if 'role' in message and message['role'] == 'observer':
+				pass
+			else:
+				player_username = message['content']
+				# TODO switch from lfg to playing
 		return messages
 
 	async def receive_message(self):

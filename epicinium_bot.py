@@ -15,6 +15,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from src.state import State
+from src.tracker import Tracker
 from src.bot_data import BotData
 from src.discord_handler import DiscordHandler
 from src.dyno_placeholder import DynoPlaceholder
@@ -68,6 +69,7 @@ intents.presences = True
 
 bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
 bot.add_cog(State())
+bot.add_cog(Tracker())
 bot.add_cog(BotData(bot))
 bot.add_cog(DynoPlaceholder())
 bot.add_cog(DiscordHandler(bot))
@@ -104,7 +106,14 @@ async def on_member_update(before, after):
 		role_to_be_removed = next(
 		    (role for role in after.roles if role.name == 'playing'), None)
 		if role_to_be_removed != None:
-			await after.remove_roles(role_to_be_removed)
+			state = bot.get_cog('State')
+			tracker = bot.get_cog('Tracker')
+			discord_id = str(after.id)
+			username = state.get_username_for_id(discord_id)
+			if username != None and tracker.is_player_online(username):
+				pass
+			else:
+				await after.remove_roles(role_to_be_removed)
 
 
 @bot.event

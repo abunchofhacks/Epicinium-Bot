@@ -52,3 +52,12 @@ class State(commands.Cog):
 	def links_as_tuples(self):
 		return [(link['discord_id'], link['epicinium_username'])
 		        for link in self.links]
+
+	def get_username_for_id(self, discord_id):
+		link = next(
+		    (link for link in self.links if link['discord_id'] == discord_id),
+		    None)
+		if link != None:
+			return link['epicinium_username']
+		else:
+			return None
