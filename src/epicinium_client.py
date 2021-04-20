@@ -27,7 +27,9 @@ class EpiciniumClient(commands.Cog):
 		self.session_token = config['epicinium-session-token']
 		user_agent = "epicinium-bot/{} (python)".format(self.version)
 		self.session = aiohttp.ClientSession(
-		    headers={"User-Agent": user_agent}, raise_for_status=True)
+		    loop=self.bot.loop,
+		    headers={"User-Agent": user_agent},
+		    raise_for_status=True)
 		self.writer = None
 		self.reader = None
 		self.username = None
@@ -129,7 +131,10 @@ class EpiciniumClient(commands.Cog):
 				player_username = message['content']
 				tracker = self.bot.get_cog('Tracker')
 				tracker.add_player(player_username)
-				# TODO give playing role
+				state = self.bot.get_cog('State')
+				discord_id = state.get_id_for_username(player_username)
+				manager = self.bot.get_cog('DiscordManager')
+				await manager.assign_playing_role(discord_id)
 		elif message['type'] == 'leave_server':
 			if 'content' not in message or not message['content']:
 				log.error("Failed to join server. (Version mismatch?)")
@@ -140,7 +145,10 @@ class EpiciniumClient(commands.Cog):
 				player_username = message['content']
 				tracker = self.bot.get_cog('Tracker')
 				tracker.remove_player(player_username)
-				# TODO remove playing role
+				state = self.bot.get_cog('State')
+				discord_id = state.get_id_for_username(player_username)
+				manager = self.bot.get_cog('DiscordManager')
+				await manager.remove_playing_role(discord_id)
 		elif message['type'] == 'leave_lobby':
 			player_username = message['content']
 			# TODO switch from playing to lfg, if they were lfg

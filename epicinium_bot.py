@@ -17,6 +17,7 @@ from pathlib import Path
 from src.state import State
 from src.tracker import Tracker
 from src.bot_data import BotData
+from src.discord_manager import DiscordManager
 from src.discord_handler import DiscordHandler
 from src.dyno_placeholder import DynoPlaceholder
 from src.epicinium_client import EpiciniumClient
@@ -70,6 +71,7 @@ intents.presences = True
 bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
 bot.add_cog(State())
 bot.add_cog(Tracker())
+bot.add_cog(DiscordManager(bot, guild_id))
 bot.add_cog(BotData(bot))
 bot.add_cog(DynoPlaceholder())
 bot.add_cog(DiscordHandler(bot))
@@ -89,31 +91,25 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_member_update(before, after):
-	if str(after.guild.id) != guild_id:
+	global guild_id
+	if after.guild.id != guild_id:
 		return
 	elif (after.activity != None
 	      and after.activity.type == discord.ActivityType.playing
 	      and not isinstance(after.activity, discord.Game)
 	      and not isinstance(after.activity, discord.Streaming)
-	      and str(after.activity.application_id) == epicinium_application_id):
-		if not any(role.name == 'playing' for role in after.roles):
-			playing_role = next(
-			    (role for role in after.guild.roles if role.name == 'playing'),
-			    None)
-			if playing_role != None:
-				await after.add_roles(playing_role)
+	      and after.activity.application_id == epicinium_application_id):
+		manager = bot.get_cog('DiscordManager')
+		await manager.assign_playing_role(after.id)
 	else:
-		role_to_be_removed = next(
-		    (role for role in after.roles if role.name == 'playing'), None)
-		if role_to_be_removed != None:
-			state = bot.get_cog('State')
-			tracker = bot.get_cog('Tracker')
-			discord_id = str(after.id)
-			username = state.get_username_for_id(discord_id)
-			if username != None and tracker.is_player_online(username):
-				pass
-			else:
-				await after.remove_roles(role_to_be_removed)
+		state = bot.get_cog('State')
+		tracker = bot.get_cog('Tracker')
+		username = state.get_username_for_id(after.id)
+		if username != None and tracker.is_player_online(username):
+			pass
+		else:
+			manager = bot.get_cog('DiscordManager')
+			await manager.remove_playing_role(after.id)
 
 
 @bot.event
@@ -126,7 +122,7 @@ async def on_message(message):
 			await bot.process_commands(message)
 		else:
 			return
-	elif str(message.guild.id) != guild_id:
+	elif message.guild.id != guild_id:
 		return
 	elif (isinstance(message.channel, discord.TextChannel)
 	      and message.channel.name == 'bot-data'

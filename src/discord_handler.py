@@ -32,9 +32,8 @@ class DiscordHandler(commands.Cog):
 	               epicinium_username):
 		if not await check_author_is_admin(ctx):
 			return
-		discord_id = str(discord_user.id)
 		state = self.bot.get_cog('State')
-		old_username = state.update_link(discord_id, epicinium_username)
+		old_username = state.update_link(discord_user.id, epicinium_username)
 		if old_username != None:
 			await ctx.send(
 			    "User {} was already linked with username `{}`.".format(
@@ -56,9 +55,8 @@ class DiscordHandler(commands.Cog):
 	async def unlink(self, ctx, discord_user: discord.Member):
 		if not await check_author_is_admin(ctx):
 			return
-		discord_id = str(discord_user.id)
 		state = self.bot.get_cog('State')
-		state.remove_link(discord_id)
+		state.remove_link(discord_user.id)
 		await ctx.send("User {} is now unlinked.".format(discord_user.mention))
 		state.save_links()
 

@@ -18,6 +18,10 @@ class State(commands.Cog):
 		linkfile = open('saves/latest_links.json', 'r')
 		self.links = json.load(linkfile)['links']
 		linkfile.close()
+		for link in self.links:
+			if isinstance(link['discord_id'], str):
+				link['discord_id'] = int(link['discord_id'])
+			link['discord_id_str'] = str(link['discord_id'])
 
 	def save_links(self):
 		linkfile = open('saves/latest_links.json', 'w')
@@ -59,5 +63,14 @@ class State(commands.Cog):
 		    None)
 		if link != None:
 			return link['epicinium_username']
+		else:
+			return None
+
+	def get_id_for_username(self, epicinium_username):
+		link = next((link for link in self.links
+		             if link['epicinium_username'] == epicinium_username),
+		            None)
+		if link != None:
+			return link['discord_id']
 		else:
 			return None
