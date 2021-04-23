@@ -12,11 +12,11 @@ from discord.ext import commands
 
 
 class DiscordManager(commands.Cog):
-	def __init__(self, bot, guild_id):
+	def __init__(self, bot: commands.Bot, guild_id: int):
 		self.bot = bot
 		self.guild_id = guild_id
 
-	async def assign_playing_role(self, discord_id):
+	async def assign_playing_role(self, discord_id: int):
 		guild = self.bot.get_guild(self.guild_id)
 		playing_role = next(
 		    (role for role in guild.roles if role.name == 'playing'), None)
@@ -29,7 +29,7 @@ class DiscordManager(commands.Cog):
 			return
 		await member.add_roles(playing_role)
 
-	async def remove_playing_role(self, discord_id):
+	async def remove_playing_role(self, discord_id: int):
 		guild = self.bot.get_guild(self.guild_id)
 		member = guild.get_member(discord_id)
 		if member == None:

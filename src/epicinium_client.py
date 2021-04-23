@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 class EpiciniumClient(commands.Cog):
-	def __init__(self, bot, config):
+	def __init__(self, bot: commands.Bot, config):
 		self.bot = bot
 		self.web_server = config['web-server']
 		self.version = config['epicinium-version']

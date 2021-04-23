@@ -7,6 +7,7 @@
 # Sander in 't Veld (sander@abunchofhacks.coop)
 ###
 
+from typing import List, Tuple, Optional
 import json
 import discord
 from discord.ext import commands
@@ -33,7 +34,7 @@ class State(commands.Cog):
 		json.dump({'links': self.links}, linkfile, indent=2)
 		linkfile.close()
 
-	def update_link(self, discord_id, epicinium_username):
+	def update_link(self, discord_id: int, epicinium_username: str):
 		link = next(
 		    (link for link in self.links if link['discord_id'] == discord_id),
 		    None)
@@ -48,16 +49,16 @@ class State(commands.Cog):
 			})
 			return None
 
-	def remove_link(self, discord_id):
+	def remove_link(self, discord_id: int):
 		self.links = [
 		    link for link in self.links if link['discord_id'] != discord_id
 		]
 
-	def links_as_tuples(self):
+	def links_as_tuples(self) -> List[Tuple[int, str]]:
 		return [(link['discord_id'], link['epicinium_username'])
 		        for link in self.links]
 
-	def get_username_for_id(self, discord_id):
+	def get_username_for_id(self, discord_id: int) -> Optional[str]:
 		link = next(
 		    (link for link in self.links if link['discord_id'] == discord_id),
 		    None)
@@ -66,7 +67,7 @@ class State(commands.Cog):
 		else:
 			return None
 
-	def get_id_for_username(self, epicinium_username):
+	def get_id_for_username(self, epicinium_username: str) -> Optional[int]:
 		link = next((link for link in self.links
 		             if link['epicinium_username'] == epicinium_username),
 		            None)

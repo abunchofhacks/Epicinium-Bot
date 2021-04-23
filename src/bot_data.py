@@ -16,10 +16,10 @@ log = logging.getLogger(__name__)
 
 
 class BotData(commands.Cog):
-	def __init__(self, bot):
+	def __init__(self, bot: commands.Bot):
 		self.bot = bot
 
-	async def handle(self, message_content):
+	async def handle(self, message_content: str):
 		data = json.loads(message_content)
 		if data['type'] == 'link':
 			discord_id = data['discord_id']
@@ -32,7 +32,7 @@ class BotData(commands.Cog):
 		else:
 			log.debug("Ignoring bot data of type: {}".format(data['type']))
 
-	async def handle_link(self, discord_id, epicinium_username):
+	async def handle_link(self, discord_id: int, epicinium_username: str):
 		state = self.bot.get_cog('State')
 		state.update_link(discord_id, epicinium_username)
 		state.save_links()
