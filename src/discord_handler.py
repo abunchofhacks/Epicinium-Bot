@@ -31,6 +31,14 @@ class DiscordHandler(commands.Cog):
 	async def wannaplay(self, ctx):
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.assign_lfg_role(ctx.author.id)
+		if isinstance(ctx.channel, discord.TextChannel):
+			lfg_role = next(
+			    (x for x in ctx.author.roles if x.name == 'looking-for-game'),
+			    None)
+			if lfg_role is not None:
+				await ctx.send("{} is now also {}.".format(
+				    ctx.author.mention, lfg_role.mention),
+				               allowed_mentions=discord.AllowedMentions.none())
 
 	@commands.command()
 	async def wannaplayoff(self, ctx):
