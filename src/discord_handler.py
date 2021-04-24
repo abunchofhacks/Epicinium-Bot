@@ -14,6 +14,7 @@ from discord.ext import typed_commands as commands
 import textwrap
 
 from src.state import State
+from src.discord_manager import DiscordManager
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +28,19 @@ class DiscordHandler(commands.Cog):
 		await ctx.send("Pong!")
 
 	@commands.command()
+	async def wannaplay(self, ctx):
+		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
+		await manager.assign_lfg_role(ctx.author.id)
+
+	@commands.command()
+	async def wannaplayoff(self, ctx):
+		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
+		await manager.remove_lfg_role(ctx.author.id)
+
+	@commands.command()
 	async def about(self, ctx):
+		if not await check_author_is_admin(ctx):
+			return
 		await ctx.send("Guild ID: {}".format(ctx.guild.id))
 
 	@commands.command()

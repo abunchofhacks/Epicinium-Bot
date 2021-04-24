@@ -8,6 +8,7 @@
 ###
 
 import json
+from typing import cast, Tuple
 import logging
 import discord
 from discord.ext import typed_commands as commands
@@ -16,16 +17,18 @@ import aiohttp
 import asyncio
 import struct
 
+from src.tracker import Tracker
+
 log = logging.getLogger(__name__)
 
 
 class EpiciniumClient(commands.Cog):
 	def __init__(self, bot: commands.Bot, config):
 		self.bot = bot
-		self.web_server = config['web-server']
-		self.version = config['epicinium-version']
-		self.account_id = config['epicinium-account-id']
-		self.session_token = config['epicinium-session-token']
+		self.web_server: str = config['web-server']
+		self.version: str = config['epicinium-version']
+		self.account_id: int = config['epicinium-account-id']
+		self.session_token: str = config['epicinium-session-token']
 		user_agent = "epicinium-bot/{} (python)".format(self.version)
 		self.session = aiohttp.ClientSession(
 		    loop=self.bot.loop,
@@ -58,7 +61,7 @@ class EpiciniumClient(commands.Cog):
 			await self.session.close()
 		return True
 
-	async def get_server(self):
+	async def get_server(self) -> Tuple[str, int]:
 		url = self.web_server + "/api/v1/portal"
 		log.info("Accessing portal...")
 		result = await self.session.get(url)
@@ -67,7 +70,7 @@ class EpiciniumClient(commands.Cog):
 		port = body['port']
 		return host, port
 
-	async def connect(self, *, host, port):
+	async def connect(self, *, host: str, port: int):
 		log.info("Connecting...")
 		reader, writer = await asyncio.open_connection(host, port)
 		self.writer = writer
@@ -105,7 +108,7 @@ class EpiciniumClient(commands.Cog):
 				self.writer.write(encode_message(message))
 			await self.writer.drain()
 
-	async def handle_message(self, message):
+	async def handle_message(self, message: dict):
 		messages = []
 		if message['type'] == 'quit':
 			log.warning("Received hard quit.")
@@ -131,12 +134,8 @@ class EpiciniumClient(commands.Cog):
 				pass
 			else:
 				player_username = message['content']
-				tracker = self.bot.get_cog('Tracker')
-				tracker.add_player(player_username)
-				state = self.bot.get_cog('State')
-				discord_id = state.get_id_for_username(player_username)
-				manager = self.bot.get_cog('DiscordManager')
-				await manager.assign_playing_role(discord_id)
+				tracker = cast(Tracker, self.bot.get_cog('Tracker'))
+				await tracker.add_player(player_username)
 		elif message['type'] == 'leave_server':
 			if 'content' not in message or not message['content']:
 				log.error("Failed to join server. (Version mismatch?)")
@@ -146,25 +145,23 @@ class EpiciniumClient(commands.Cog):
 				pass
 			else:
 				player_username = message['content']
-				tracker = self.bot.get_cog('Tracker')
-				tracker.remove_player(player_username)
-				state = self.bot.get_cog('State')
-				discord_id = state.get_id_for_username(player_username)
-				manager = self.bot.get_cog('DiscordManager')
-				await manager.remove_playing_role(discord_id)
+				tracker = cast(Tracker, self.bot.get_cog('Tracker'))
+				await tracker.remove_player(player_username)
 		elif message['type'] == 'leave_lobby':
 			player_username = message['content']
-			# TODO switch from playing to lfg, if they were lfg
+			tracker = cast(Tracker, self.bot.get_cog('Tracker'))
+			await tracker.player_left_match(player_username)
 		elif message['type'] == 'in_game':
 			if 'role' in message and message['role'] == 'observer':
 				pass
 			else:
 				player_username = message['content']
-				# TODO switch from lfg to playing
+				tracker = cast(Tracker, self.bot.get_cog('Tracker'))
+				await tracker.player_started_match(player_username)
 		return messages
 
 	async def receive_message(self):
-		head = await self.reader.read(4)
+		head: bytes = await self.reader.read(4)
 		if len(head) == 0:
 			log.error("Unexpected EOF!")
 			return None
@@ -212,12 +209,14 @@ class EpiciniumClient(commands.Cog):
 				break
 
 
-def encode_message(message):
-	jsonstr = json.dumps(message, ensure_ascii=True, separators=(',', ':'))
+def encode_message(message: dict) -> bytes:
+	jsonstr: str = json.dumps(message,
+	                          ensure_ascii=True,
+	                          separators=(',', ':'))
 	log.debug("Sending message: {}".format(jsonstr))
 	# Encode the json message in lower ASCII.
-	data = jsonstr.encode(encoding='ascii')
+	data: bytes = jsonstr.encode(encoding='ascii')
 	# Prepend the network order representation of the 32-bit length.
-	head = struct.pack('!I', len(data))
+	head: bytes = struct.pack('!I', len(data))
 	log.debug("Sending message of length {}".format(len(data)))
 	return head + data
