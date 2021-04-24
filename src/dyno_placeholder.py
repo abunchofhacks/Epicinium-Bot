@@ -8,7 +8,7 @@
 ###
 
 import discord
-from discord.ext import commands
+from discord.ext import typed_commands as commands
 
 
 class DynoPlaceholder(commands.Cog):

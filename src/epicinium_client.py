@@ -10,7 +10,8 @@
 import json
 import logging
 import discord
-from discord.ext import commands, tasks
+from discord.ext import typed_commands as commands
+from discord.ext import tasks
 import aiohttp
 import asyncio
 import struct
@@ -49,12 +50,13 @@ class EpiciniumClient(commands.Cog):
 		await self.disconnect()
 		log.debug("Connection ended.")
 
-	@listen.after_loop
+	@listen.after_loop  # type: ignore
 	async def on_listen_cancel(self):
 		if self.listen.is_being_cancelled():
-			if self.writer != None:
+			if self.writer is not None:
 				await self.disconnect()
 			await self.session.close()
+		return True
 
 	async def get_server(self):
 		url = self.web_server + "/api/v1/portal"
@@ -92,12 +94,12 @@ class EpiciniumClient(commands.Cog):
 	async def keep_listening(self):
 		while True:
 			message = await self.receive_message()
-			if message == None:
+			if message is None:
 				break
 			elif message == {}:
 				continue
 			responses = await self.handle_message(message)
-			if responses == None:
+			if responses is None:
 				break
 			for message in responses:
 				self.writer.write(encode_message(message))
@@ -122,7 +124,7 @@ class EpiciniumClient(commands.Cog):
 			if 'content' not in message or not message['content']:
 				log.error("Failed to join server.")
 				return None
-			elif self.username == None:
+			elif self.username is None:
 				self.username = message['content']
 				log.info("Joined server as '{}'".format(self.username))
 			elif message['content'] == self.username:
@@ -139,7 +141,8 @@ class EpiciniumClient(commands.Cog):
 			if 'content' not in message or not message['content']:
 				log.error("Failed to join server. (Version mismatch?)")
 				return None
-			elif self.username != None and message['content'] == self.username:
+			elif self.username is not None and message[
+			    'content'] == self.username:
 				pass
 			else:
 				player_username = message['content']

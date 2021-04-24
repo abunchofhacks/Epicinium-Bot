@@ -8,7 +8,7 @@
 ###
 
 import discord
-from discord.ext import commands
+from discord.ext import typed_commands as commands
 
 
 class DiscordManager(commands.Cog):
@@ -18,12 +18,14 @@ class DiscordManager(commands.Cog):
 
 	async def assign_playing_role(self, discord_id: int):
 		guild = self.bot.get_guild(self.guild_id)
+		if guild is None:
+			return
 		playing_role = next(
 		    (role for role in guild.roles if role.name == 'playing'), None)
-		if playing_role == None:
+		if playing_role is None:
 			return
 		member = guild.get_member(discord_id)
-		if member == None:
+		if member is None:
 			return
 		if playing_role in member.roles:
 			return
@@ -31,11 +33,13 @@ class DiscordManager(commands.Cog):
 
 	async def remove_playing_role(self, discord_id: int):
 		guild = self.bot.get_guild(self.guild_id)
+		if guild is None:
+			return
 		member = guild.get_member(discord_id)
-		if member == None:
+		if member is None:
 			return
 		playing_role = next(
 		    (role for role in member.roles if role.name == 'playing'), None)
-		if playing_role == None:
+		if playing_role is None:
 			return
 		await member.remove_roles(playing_role)

@@ -8,9 +8,12 @@
 ###
 
 import json
+from typing import cast
 import logging
 import discord
-from discord.ext import commands
+from discord.ext import typed_commands as commands
+
+from src.state import State
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +36,6 @@ class BotData(commands.Cog):
 			log.debug("Ignoring bot data of type: {}".format(data['type']))
 
 	async def handle_link(self, discord_id: int, epicinium_username: str):
-		state = self.bot.get_cog('State')
+		state = cast(State, self.bot.get_cog('State'))
 		state.update_link(discord_id, epicinium_username)
 		state.save_links()

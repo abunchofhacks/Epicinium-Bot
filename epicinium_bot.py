@@ -9,10 +9,11 @@
 
 import toml
 import discord
-from discord.ext import commands
+from discord.ext import typed_commands as commands
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import cast
 
 from src.state import State
 from src.tracker import Tracker
@@ -41,10 +42,9 @@ log_levels = {
     "warning": logging.WARNING,
     "error": logging.ERROR,
 }
-log_level = log_levels.get(config['log-level'])
+log_level = log_levels[config['log-level']]
 
-logging.getLogger('discord').setLevel(
-    log_levels.get(config['log-level-discord']))
+logging.getLogger('discord').setLevel(log_levels[config['log-level-discord']])
 logging.getLogger('discord').addHandler(handler)
 
 log = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ async def on_member_update(before, after):
 	global guild_id
 	if after.guild.id != guild_id:
 		return
-	elif (after.activity != None
+	elif (after.activity is not None
 	      and after.activity.type == discord.ActivityType.playing
 	      and not isinstance(after.activity, discord.Game)
 	      and not isinstance(after.activity, discord.Streaming)
@@ -102,13 +102,13 @@ async def on_member_update(before, after):
 		manager = bot.get_cog('DiscordManager')
 		await manager.assign_playing_role(after.id)
 	else:
-		state = bot.get_cog('State')
-		tracker = bot.get_cog('Tracker')
+		state = cast(State, bot.get_cog('State'))
+		tracker = cast(Tracker, bot.get_cog('Tracker'))
 		username = state.get_username_for_id(after.id)
-		if username != None and tracker.is_player_online(username):
+		if username is not None and tracker.is_player_online(username):
 			pass
 		else:
-			manager = bot.get_cog('DiscordManager')
+			manager = cast(DiscordManager, bot.get_cog('DiscordManager'))
 			await manager.remove_playing_role(after.id)
 
 
@@ -128,7 +128,8 @@ async def on_message(message):
 	      and message.channel.name == 'bot-data'
 	      and message.content.startswith('{')
 	      and message.content.endswith('}')):
-		await bot.get_cog('BotData').handle(message.content)
+		bot_data = cast(BotData, bot.get_cog('BotData'))
+		await bot_data.handle(message.content)
 	else:
 		await bot.process_commands(message)
 

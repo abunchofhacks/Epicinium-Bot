@@ -7,10 +7,13 @@
 # Sander in 't Veld (sander@abunchofhacks.coop)
 ###
 
+from typing import cast
 import logging
 import discord
-from discord.ext import commands
+from discord.ext import typed_commands as commands
 import textwrap
+
+from src.state import State
 
 log = logging.getLogger(__name__)
 
@@ -32,9 +35,9 @@ class DiscordHandler(commands.Cog):
 	               epicinium_username):
 		if not await check_author_is_admin(ctx):
 			return
-		state = self.bot.get_cog('State')
+		state = cast(State, self.bot.get_cog('State'))
 		old_username = state.update_link(discord_user.id, epicinium_username)
-		if old_username != None:
+		if old_username is not None:
 			await ctx.send(
 			    "User {} was already linked with username `{}`.".format(
 			        discord_user.mention, old_username),
@@ -55,7 +58,7 @@ class DiscordHandler(commands.Cog):
 	async def unlink(self, ctx, discord_user: discord.Member):
 		if not await check_author_is_admin(ctx):
 			return
-		state = self.bot.get_cog('State')
+		state = cast(State, self.bot.get_cog('State'))
 		state.remove_link(discord_user.id)
 		await ctx.send("User {} is now unlinked.".format(discord_user.mention))
 		state.save_links()
@@ -70,7 +73,7 @@ class DiscordHandler(commands.Cog):
 	async def listlinks(self, ctx):
 		if not await check_author_is_admin(ctx):
 			return
-		state = self.bot.get_cog('State')
+		state = cast(State, self.bot.get_cog('State'))
 		textlinks = [
 		    "<@{0}> {1}".format(*link) for link in state.links_as_tuples()
 		]
