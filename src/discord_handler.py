@@ -36,21 +36,16 @@ class DiscordHandler(commands.Cog):
 			    (x for x in ctx.author.roles if x.name == 'looking-for-game'),
 			    None)
 			if lfg_role is not None:
-				await ctx.send("{} is now also {}.".format(
-				    ctx.author.mention, lfg_role.mention),
-				               allowed_mentions=discord.AllowedMentions.none())
+				await ctx.send(
+				    "{} is now also {}.".format(ctx.author.mention,
+				                                lfg_role.mention),
+				    allowed_mentions=discord.AllowedMentions(users=False,
+				                                             roles=True))
 
 	@commands.command()
 	async def wannaplayoff(self, ctx):
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.remove_lfg_role(ctx.author.id)
-
-	@commands.command()
-	async def about(self, ctx):
-		if not await check_author_is_admin(ctx):
-			return
-		await ctx.send("Guild ID: {}".format(ctx.guild.id))
-		await ctx.send("Channel ID: {}".format(ctx.channel.id))
 
 	@commands.command()
 	async def link(self, ctx, discord_user: discord.Member,
