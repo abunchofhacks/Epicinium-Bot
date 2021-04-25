@@ -50,6 +50,7 @@ class DiscordHandler(commands.Cog):
 		if not await check_author_is_admin(ctx):
 			return
 		await ctx.send("Guild ID: {}".format(ctx.guild.id))
+		await ctx.send("Channel ID: {}".format(ctx.channel.id))
 
 	@commands.command()
 	async def link(self, ctx, discord_user: discord.Member,
