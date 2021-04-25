@@ -18,6 +18,8 @@ Epicinium is and will remain free software. If you wish to support Epicinium and
 
 * Python 3.6 or higher
 * [discord.py](https://discordpy.readthedocs.io/) 1.7.1
+* [discord.py-stubs](https://pypi.org/project/discord.py-stubs/) 1.7.1
+* [discord-ext-typed-commands](https://pypi.org/project/discord-ext-typed-commands/) 1.0.3
 * [aiohttp](https://pypi.org/project/aiohttp/) 3.7.4.post0
 * [toml](https://pypi.org/project/toml/) 0.10.2
 

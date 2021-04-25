@@ -10,3 +10,6 @@ config.toml
 
 # Python execution
 __pycache__/
+
+# Python virtual environment
+/venv/
