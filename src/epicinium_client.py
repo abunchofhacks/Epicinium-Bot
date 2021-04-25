@@ -8,7 +8,7 @@
 ###
 
 import json
-from typing import cast, Tuple
+from typing import cast, Tuple, Optional
 import logging
 import discord
 from discord.ext import typed_commands as commands
@@ -33,9 +33,13 @@ class EpiciniumClient(commands.Cog):
 		self.session = aiohttp.ClientSession(
 		    loop=self.bot.loop,
 		    headers={"User-Agent": user_agent},
+		    timeout=aiohttp.ClientTimeout(total=30,
+		                                  connect=2,
+		                                  sock_connect=3,
+		                                  sock_read=5),
 		    raise_for_status=True)
-		self.writer = None
-		self.reader = None
+		self.writer: Optional[asyncio.StreamWriter] = None
+		self.reader: Optional[asyncio.StreamReader] = None
 		self.username = None
 		self.listen.start()
 		log.info("Client started: {}".format(user_agent))
@@ -48,8 +52,10 @@ class EpiciniumClient(commands.Cog):
 		host, port = await self.get_server()
 		log.info("Connecting to {}:{}...".format(host, port))
 		await self.connect(host=host, port=port)
+		log.info("Connected.")
 		await self.join()
 		await self.keep_listening()
+		self.pulse.cancel()
 		await self.disconnect()
 		log.debug("Connection ended.")
 
@@ -71,11 +77,16 @@ class EpiciniumClient(commands.Cog):
 		return host, port
 
 	async def connect(self, *, host: str, port: int):
-		log.info("Connecting...")
 		reader, writer = await asyncio.open_connection(host, port)
 		self.writer = writer
 		self.reader = reader
-		log.info("Connected.")
+		self.pulse.start()
+
+	@tasks.loop(seconds=4)
+	async def pulse(self):
+		if self.writer is not None:
+			self.writer.write(encode_pulse())
+			await self.writer.drain()
 
 	async def join(self):
 		message = {
@@ -91,6 +102,8 @@ class EpiciniumClient(commands.Cog):
 		    'sender': self.account_id,
 		    'content': self.session_token
 		}
+		self.writer.write(encode_message(message))
+		message = {'type': 'ping'}
 		self.writer.write(encode_message(message))
 		await self.writer.drain()
 
@@ -220,3 +233,9 @@ def encode_message(message: dict) -> bytes:
 	head: bytes = struct.pack('!I', len(data))
 	log.debug("Sending message of length {}".format(len(data)))
 	return head + data
+
+
+def encode_pulse() -> bytes:
+	head: bytes = struct.pack('!I', 0)
+	log.debug("Sending pulse")
+	return head
