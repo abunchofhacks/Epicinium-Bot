@@ -7,14 +7,40 @@
 # Sander in 't Veld (sander@abunchofhacks.coop)
 ###
 
+from typing import Dict
+from datetime import datetime, timedelta
 import discord
 from discord.ext import typed_commands as commands
+from discord.ext import tasks
 
 
 class DiscordManager(commands.Cog):
 	def __init__(self, bot: commands.Bot, guild_id: int):
 		self.bot = bot
 		self.guild_id = guild_id
+		self.last_lfg_time: Dict[int, datetime] = {}
+		self.remove_afk_from_lfg.start()
+
+	@tasks.loop(seconds=600)
+	async def remove_afk_from_lfg(self):
+		guild = self.bot.get_guild(self.guild_id)
+		if guild is None:
+			return
+		lfg_role = next(
+		    (role for role in guild.roles if role.name == 'looking-for-game'),
+		    None)
+		if lfg_role is None:
+			return
+		# Remove lfg from members that are not currently online in Epicinium
+		# and have not played or reconfirmed their lfg-ness for a while.
+		timeout = timedelta(hours=2)
+		for member in lfg_role.members:
+			if self.last_lfg_time.get(member.id) is None:
+				self.last_lfg_time[member.id] = datetime.now()
+			elif any(role.name == 'playing' for role in member.roles):
+				self.last_lfg_time[member.id] = datetime.now()
+			elif self.last_lfg_time[member.id] + timeout < datetime.now():
+				await member.remove_roles(lfg_role)
 
 	async def assign_playing_role(self, discord_id: int):
 		guild = self.bot.get_guild(self.guild_id)
@@ -56,6 +82,7 @@ class DiscordManager(commands.Cog):
 		member = guild.get_member(discord_id)
 		if member is None:
 			return
+		self.last_lfg_time[member.id] = datetime.now()
 		if lfg_role in member.roles:
 			return
 		await member.add_roles(lfg_role)
@@ -120,3 +147,4 @@ class DiscordManager(commands.Cog):
 		if lfg_role is None:
 			return
 		await member.add_roles(lfg_role)
+		self.last_lfg_time[member.id] = datetime.now()
