@@ -12,6 +12,7 @@ import logging
 import discord
 from discord.ext import typed_commands as commands
 import textwrap
+import re
 
 from src.state import State
 from src.discord_manager import DiscordManager
@@ -28,7 +29,23 @@ class DiscordHandler(commands.Cog):
 		await ctx.send("Pong!")
 
 	@commands.command()
-	async def wannaplay(self, ctx):
+	async def wannaplay(self, ctx, epicinium_username=None):
+		state = cast(State, self.bot.get_cog('State'))
+		if epicinium_username is None:
+			epicinium_username = state.get_username_for_id(ctx.author.id)
+		elif is_valid_username(epicinium_username):
+			state.update_link(ctx.author.id, epicinium_username)
+			state.save_links()
+		else:
+			epicinium_username = None
+		if epicinium_username is None:
+			await ctx.message.reply((
+			    "Your Discord account is not yet connected"
+			    " to an Epicinium username."
+			    " Please use `!wannaplay YourUsernameHere`."
+			    " (The username is case-sensitive, please enter it correctly.)"
+			))
+			return
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.assign_lfg_role(ctx.author.id)
 		if isinstance(ctx.channel, discord.TextChannel):
@@ -36,20 +53,21 @@ class DiscordHandler(commands.Cog):
 			    (x for x in ctx.author.roles if x.name == 'looking-for-game'),
 			    None)
 			if lfg_role is not None:
-				await ctx.send(
-				    "{} is now also {}.".format(ctx.author.mention,
-				                                lfg_role.mention),
-				    allowed_mentions=discord.AllowedMentions(users=False,
-				                                             roles=True))
+				await ctx.message.add_reaction("\N{Heavy Check Mark}")
+				await ctx.send("{} (aka `{}` in-game) is now also {}.".format(
+				    ctx.author.mention, epicinium_username, lfg_role.mention),
+				               allowed_mentions=discord.AllowedMentions(
+				                   users=False, roles=True))
 
 	@commands.command()
 	async def wannaplayoff(self, ctx):
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.remove_lfg_role(ctx.author.id)
+		await ctx.message.add_reaction("\N{Heavy Check Mark}")
 
 	@commands.command()
 	async def link(self, ctx, discord_user: discord.Member,
-	               epicinium_username):
+	               epicinium_username: str):
 		if not await check_author_is_admin(ctx):
 			return
 		state = cast(State, self.bot.get_cog('State'))
@@ -108,3 +126,8 @@ async def check_author_is_admin(ctx):
 		    "{} You are not allowed to perform this command.".format(
 		        ctx.author.mention))
 		return False
+
+
+def is_valid_username(username: str):
+	valid_pattern = re.compile(r"^[a-zA-Z0-9_~.-]{3,36}$")
+	return valid_pattern.match(username)
