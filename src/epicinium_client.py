@@ -161,14 +161,14 @@ class EpiciniumClient(commands.Cog):
 				tracker = cast(Tracker, self.bot.get_cog('Tracker'))
 				await tracker.remove_player(player_username)
 		elif message['type'] == 'leave_lobby':
-			player_username = message['content']
+			player_username = message['sender']
 			tracker = cast(Tracker, self.bot.get_cog('Tracker'))
 			await tracker.player_left_match(player_username)
 		elif message['type'] == 'in_game':
 			if 'role' in message and message['role'] == 'observer':
 				pass
 			else:
-				player_username = message['content']
+				player_username = message['sender']
 				tracker = cast(Tracker, self.bot.get_cog('Tracker'))
 				await tracker.player_started_match(player_username)
 		return messages
