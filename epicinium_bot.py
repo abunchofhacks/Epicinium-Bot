@@ -82,6 +82,8 @@ bot.add_cog(EpiciniumClient(bot, config))
 async def on_ready():
 	log.info("Logged in as {0.user}".format(bot))
 	print("Logged in as {0.user}".format(bot))
+	tracker = cast(Tracker, bot.get_cog('Tracker'))
+	tracker.go_online()
 
 
 @bot.event
