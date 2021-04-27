@@ -70,7 +70,7 @@ intents.presences = True
 
 bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
 bot.add_cog(State())
-bot.add_cog(Tracker(bot, config.get('online-count-channel-id')))
+bot.add_cog(Tracker(bot))
 bot.add_cog(DiscordManager(bot, guild_id))
 bot.add_cog(BotData(bot))
 bot.add_cog(DynoPlaceholder())

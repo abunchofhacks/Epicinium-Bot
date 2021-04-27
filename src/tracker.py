@@ -17,19 +17,19 @@ from src.discord_manager import DiscordManager
 
 
 class Info:
-	def __init__(self, discord_id: int):
+	def __init__(self, discord_id: Optional[int]):
 		self.discord_id = discord_id
 		self.is_in_game: bool = False
 
 
 class Tracker(commands.Cog):
-	def __init__(self, bot: commands.Bot, online_count_channel_id: int = None):
+	def __init__(self, bot: commands.Bot):
 		self.bot = bot
 		self.player_info: Dict[str, Info] = {}
 		self.last_updated_online_count: Optional[int] = None
-		if online_count_channel_id is not None:
-			self.online_count_channel_id: int = online_count_channel_id
-			self.update_online_count.start()
+
+	def go_online(self):
+		self.update_online_count.start()
 
 	@tasks.loop(seconds=3)
 	async def update_online_count(self):
@@ -37,20 +37,17 @@ class Tracker(commands.Cog):
 		if self.last_updated_online_count is not None:
 			if self.last_updated_online_count == current_count:
 				return
-		channel = self.bot.get_channel(self.online_count_channel_id)
-		if channel is None:
-			return
-		if not isinstance(channel, discord.TextChannel):
-			return
-		if channel.topic is None:
-			return
-		parts = channel.topic.split(' | ', 1)
-		if len(parts) == 2:
-			rest_of_topic = parts[1]
+		if current_count == 1:
+			status = discord.Status.online
+			text = "with 1 online player"
+		elif current_count > 0:
+			status = discord.Status.online
+			text = "with {} online players".format(current_count)
 		else:
-			rest_of_topic = channel.topic
-		new_topic = "Online: {} | {}".format(current_count, rest_of_topic)
-		await channel.edit(topic=new_topic)
+			status = discord.Status.idle
+			text = "the waiting game"
+		activity = discord.Game(text)
+		await self.bot.change_presence(activity=activity, status=status)
 		self.last_updated_online_count = current_count
 
 	async def add_player(self, username: str):
@@ -58,9 +55,9 @@ class Tracker(commands.Cog):
 			return
 		state = cast(State, self.bot.get_cog('State'))
 		discord_id = state.get_id_for_username(username)
+		self.player_info[username] = Info(discord_id)
 		if discord_id is None:
 			return
-		self.player_info[username] = Info(discord_id)
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.assign_playing_role(discord_id)
 
@@ -69,6 +66,8 @@ class Tracker(commands.Cog):
 			return
 		discord_id = self.player_info[username].discord_id
 		del self.player_info[username]
+		if discord_id is None:
+			return
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.remove_playing_role(discord_id)
 
@@ -77,6 +76,8 @@ class Tracker(commands.Cog):
 		if info is None:
 			return
 		info.is_in_game = True
+		if info.discord_id is None:
+			return
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.suppress_lfg_role(info.discord_id)
 
@@ -85,6 +86,8 @@ class Tracker(commands.Cog):
 		if info is None:
 			return
 		info.is_in_game = False
+		if info.discord_id is None:
+			return
 		manager = cast(DiscordManager, self.bot.get_cog('DiscordManager'))
 		await manager.restore_lfg_role(info.discord_id)
 

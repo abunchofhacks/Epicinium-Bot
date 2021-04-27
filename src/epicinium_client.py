@@ -143,6 +143,8 @@ class EpiciniumClient(commands.Cog):
 			elif self.username is None:
 				self.username = message['content']
 				log.info("Joined server as '{}'".format(self.username))
+				tracker = cast(Tracker, self.bot.get_cog('Tracker'))
+				tracker.go_online()
 			elif message['content'] == self.username:
 				pass
 			else:
