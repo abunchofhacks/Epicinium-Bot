@@ -55,7 +55,8 @@ class DiscordHandler(commands.Cog):
 			if lfg_role is not None:
 				await ctx.message.add_reaction("\N{Heavy Check Mark}")
 				await ctx.send("{} (aka `{}` in-game) is now also {}.".format(
-				    ctx.author.mention, epicinium_username, lfg_role.mention),
+				    ctx.author.display_name, epicinium_username,
+				    lfg_role.mention),
 				               allowed_mentions=discord.AllowedMentions(
 				                   users=False, roles=True))
 
@@ -74,12 +75,12 @@ class DiscordHandler(commands.Cog):
 		old_username = state.update_link(discord_user.id, epicinium_username)
 		if old_username is not None:
 			await ctx.send(
-			    "User {} was already linked with username `{}`.".format(
-			        discord_user.mention, old_username),
+			    "User **{}** was already linked with username `{}`.".format(
+			        discord_user.display_name, old_username),
 			    allowed_mentions=discord.AllowedMentions.none())
 		await ctx.send(
-		    "User {} is now linked with Epicinium username `{}`.".format(
-		        discord_user.mention, epicinium_username),
+		    "User **{}** is now linked with Epicinium username `{}`.".format(
+		        discord_user.display_name, epicinium_username),
 		    allowed_mentions=discord.AllowedMentions.none())
 		state.save_links()
 
@@ -95,7 +96,8 @@ class DiscordHandler(commands.Cog):
 			return
 		state = cast(State, self.bot.get_cog('State'))
 		state.remove_link(discord_user.id)
-		await ctx.send("User {} is now unlinked.".format(discord_user.mention))
+		await ctx.send("User **{}** is now unlinked.".format(
+		    discord_user.display_name))
 		state.save_links()
 
 	@unlink.error
