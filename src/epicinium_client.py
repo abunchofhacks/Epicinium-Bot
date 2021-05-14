@@ -196,7 +196,7 @@ class EpiciniumClient(commands.Cog):
 			    "Unexpected EOF while receiving message of length {}!".format(
 			        messagelen))
 			return None
-		jsonstr = data.decode(encoding='ascii')
+		jsonstr = data.decode(encoding='utf-8')
 		log.debug("Received message: {}".format(jsonstr))
 		message = json.loads(jsonstr)
 		return message
